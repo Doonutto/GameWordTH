@@ -3,399 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word Rush 60s - Realtime Multiplayer</title>
+    <title>Word Rush 60s - Multiplayer</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Prompt) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        prompt: ['Prompt', 'sans-serif'],
-                    },
-                    animation: {
-                        'bounce-short': 'bounce 0.5s ease-in-out 1',
-                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'pop': 'pop 0.3s ease-out forwards',
-                    },
-                    keyframes: {
-                        pop: {
-                            '0%': { transform: 'scale(0.85)', opacity: '0' },
-                            '100%': { transform: 'scale(1)', opacity: '1' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Prompt', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
-            min-height: 100vh;
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap');
+        body { font-family: 'Kanit', sans-serif; }
+        .screen-view { display: none; }
+        .screen-view.active { display: flex; }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-120px) scale(1.5); }
         }
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.07);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+        .animate-float { animation: floatUp 2s ease-out forwards; }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
         }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .glow-text {
-            text-shadow: 0 0 15px rgba(168, 85, 247, 0.6), 0 0 30px rgba(236, 72, 153, 0.4);
-        }
-        .glow-box {
-            box-shadow: 0 0 25px rgba(168, 85, 247, 0.3);
-        }
-        .screen-view {
-            display: none !important;
-        }
-        .screen-view.active {
-            display: flex !important;
-        }
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
+        .toast-notification { animation: fadeInOut 2.5s ease-in-out forwards; }
     </style>
-
-    <!-- Firebase SDK Compat Scripts -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
-<body class="text-white flex flex-col justify-between p-4 md:p-6 min-h-screen">
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between relative overflow-hidden select-none">
 
-    <!-- Header Section -->
-    <header class="max-w-4xl w-full mx-auto flex justify-between items-center py-2 border-b border-white/10 pb-4">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-purple-500/30">
-                ⚡
-            </div>
-            <div>
-                <h1 class="text-xl md:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300">
-                    WORD RUSH 60s
+    <!-- BGM & Sound Controls -->
+    <button id="bgm-toggle-btn" onclick="toggleBGM()" class="fixed top-4 right-4 z-50 bg-slate-800 hover:bg-slate-700 text-amber-400 p-3 rounded-full shadow-lg border border-amber-500/30 transition flex items-center justify-center w-12 h-12">
+        <i id="bgm-icon" class="fas fa-volume-mute text-xl"></i>
+    </button>
+
+    <!-- Floating Sticker Container -->
+    <div id="sticker-container" class="fixed bottom-20 right-8 z-40 pointer-events-none flex flex-col items-end space-y-2"></div>
+
+    <div class="flex-grow flex items-center justify-center p-4">
+        
+        <!-- SCREEN 1: MAIN MENU -->
+        <div id="screen-menu" class="screen-view active flex-col items-center justify-center w-full max-w-md space-y-6 text-center">
+            <div class="space-y-2">
+                <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500 tracking-wider">
+                    WORD RUSH <span class="text-3xl text-white block mt-1">60s</span>
                 </h1>
-                <p class="text-xs text-slate-400">เกมท้าทายพิมพ์คำศัพท์ Real-time Multiplayer</p>
-            </div>
-        </div>
-        
-        <!-- Controls: Language & BGM Toggle -->
-        <div class="flex items-center gap-2">
-            <!-- Audio BGM Toggle Button -->
-            <button id="bgmToggleBtn" onclick="toggleBGM()" class="glass-panel w-9 h-9 rounded-full flex items-center justify-center text-slate-300 hover:text-amber-300 transition-all shadow">
-                <i id="bgmIcon" class="fa-solid fa-volume-xmark text-sm"></i>
-            </button>
-
-            <!-- Language Switcher -->
-            <div id="langToggle" class="glass-panel p-1 rounded-full flex gap-1 cursor-pointer select-none">
-                <button id="btnThai" onclick="setLanguage('th')" class="px-3 py-1 text-xs rounded-full font-bold transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow">
-                    ไทย (ก-ฮ)
-                </button>
-                <button id="btnEng" onclick="setLanguage('en')" class="px-3 py-1 text-xs rounded-full font-bold transition-all duration-300 text-slate-400 hover:text-white">
-                    ENG (A-Z)
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Game Container -->
-    <main class="max-w-4xl w-full mx-auto my-auto py-4 flex flex-col items-center">
-        
-        <!-- 1. SCREEN: START -->
-        <div id="screen-start" class="screen-view active w-full glass-panel rounded-3xl p-6 md:p-10 text-center max-w-lg shadow-2xl flex-col items-center animate-pop">
-            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-4xl shadow-lg shadow-purple-500/40">
-                <i class="fa-solid fa-gamepad"></i>
-            </div>
-            <h2 class="text-3xl font-extrabold mb-2">เข้าสู่การประลอง!</h2>
-            <p class="text-slate-300 text-sm mb-6">กรอกชื่อของคุณ แล้วเลือกโหมดเล่นเพื่อลุยกันเลย</p>
-
-            <div class="w-full text-left mb-6">
-                <label class="text-xs font-semibold text-slate-300 mb-1 block">ชื่อผู้เล่น (Player Name)</label>
-                <input type="text" id="playerNameInput" placeholder="ระบุชื่อผู้เล่นของคุณ..." maxlength="15" 
-                    class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-purple-500/40 focus:border-pink-500 focus:outline-none text-base font-semibold">
-            </div>
-            
-            <div class="grid grid-cols-1 gap-3 w-full">
-                <button onclick="goToLobby()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-extrabold text-base shadow-lg shadow-purple-500/30 transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-users"></i>โหมด Multiplayer (เล่นกับเพื่อน)
-                </button>
-                <button onclick="startSinglePlayer()" class="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-bold text-base transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-user"></i>โหมด Solo Singleplayer
-                </button>
-            </div>
-        </div>
-
-        <!-- 2. SCREEN: LOBBY -->
-        <div id="screen-lobby" class="screen-view w-full glass-panel rounded-3xl p-6 md:p-8 text-center max-w-lg shadow-2xl flex-col items-center animate-pop">
-            <h2 class="text-2xl font-black mb-2">โหมด Multiplayer</h2>
-            <p class="text-xs text-slate-400 mb-6">สร้างห้องใหม่ หรือกรอกรหัส 6 หลักเพื่อเข้าร่วมห้องเพื่อน</p>
-
-            <button onclick="createNewRoom()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-base shadow-lg shadow-emerald-500/30 mb-6 transition-all">
-                <i class="fa-solid fa-plus-circle mr-2"></i>สร้างห้องใหม่ (Create Room)
-            </button>
-
-            <div class="relative w-full flex items-center my-4">
-                <div class="flex-grow border-t border-white/10"></div>
-                <span class="px-3 text-xs text-slate-400">หรือเข้าร่วมห้อง</span>
-                <div class="flex-grow border-t border-white/10"></div>
+                <p class="text-slate-400 text-sm">เกมประลองปัญญาหาคำศัพท์แข่งกับเพื่อนเรียลไทม์</p>
             </div>
 
-            <div class="w-full text-left my-4">
-                <label class="text-xs font-semibold text-slate-300 mb-1 block">รหัสห้อง (Room Code 6 หลัก)</label>
-                <div class="flex gap-2">
-                    <input type="text" id="roomCodeInput" placeholder="เช่น 123456" maxlength="6" 
-                        class="flex-1 px-4 py-3 rounded-xl bg-slate-900/80 border border-purple-500/40 text-center text-xl font-bold tracking-widest uppercase focus:outline-none">
-                    <button onclick="joinExistingRoom()" class="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-bold text-sm transition-all">
-                        เข้าร่วม
+            <div class="w-full bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+                <div>
+                    <label class="block text-left text-sm text-slate-400 mb-1">ชื่อผู้เล่น</label>
+                    <input type="text" id="input-username" placeholder="ใส่ชื่อของคุณ..." maxlength="12" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-center font-bold text-amber-400 focus:outline-none focus:border-amber-500 transition">
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <button onclick="handleCreateRoom()" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fas fa-plus-circle"></i> สร้างห้องใหม่
+                    </button>
+                    
+                    <div class="flex items-center gap-2 my-2">
+                        <div class="h-px bg-slate-700 flex-grow"></div>
+                        <span class="text-xs text-slate-500 font-bold">หรือ</span>
+                        <div class="h-px bg-slate-700 flex-grow"></div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="input-room-code" placeholder="รหัสห้อง 6 หลัก" maxlength="6" class="w-2/3 px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-center uppercase tracking-widest font-bold focus:outline-none focus:border-amber-500">
+                        <button onclick="handleJoinRoom()" class="w-1/3 bg-slate-700 hover:bg-slate-600 font-bold py-3 rounded-xl shadow transition active:scale-95">
+                            เข้าร่วม
+                        </button>
+                    </div>
+
+                    <button onclick="startSoloMode()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl border border-slate-700 text-sm transition mt-2">
+                        <i class="fas fa-user"></i> เล่นคนเดียว (Solo)
                     </button>
                 </div>
             </div>
-
-            <button onclick="navigateTo('screen-start')" class="mt-4 text-xs text-slate-400 hover:text-white underline">
-                <i class="fa-solid fa-arrow-left mr-1"></i>ย้อนกลับ
-            </button>
         </div>
 
-        <!-- 3. SCREEN: ROOM LOBBY -->
-        <div id="screen-room" class="screen-view w-full glass-panel rounded-3xl p-6 md:p-8 max-w-lg shadow-2xl flex-col items-center animate-pop">
-            <div class="text-center w-full mb-6">
-                <span class="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1">รหัสห้องแข่งขัน</span>
-                <div id="displayRoomCode" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-purple-400 tracking-widest">
-                    ------
+        <!-- SCREEN 2: LOBBY -->
+        <div id="screen-lobby" class="screen-view flex-col items-center justify-center w-full max-w-md space-y-6">
+            <div class="bg-slate-800/90 w-full p-6 rounded-2xl border border-slate-700 shadow-xl space-y-6 text-center">
+                <div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">รหัสห้องแข่งขัน</span>
+                    <div id="lobby-room-code" class="text-4xl font-extrabold text-amber-400 tracking-wider my-1">------</div>
+                    <p class="text-xs text-slate-500">ส่งรหัสนี้ให้เพื่อนเพื่อเข้าร่วมเล่นด้วยกัน</p>
                 </div>
-                <p class="text-[11px] text-purple-300 mt-1"><i class="fa-solid fa-copy mr-1"></i>แชร์รหัส 6 หลักนี้ให้เพื่อนเข้ามาร่วมห้องได้เลย</p>
-            </div>
 
-            <div class="w-full glass-card p-4 rounded-2xl mb-6">
-                <div class="flex justify-between items-center mb-3 text-xs font-semibold text-slate-300 border-b border-white/10 pb-2">
-                    <span><i class="fa-solid fa-users mr-1"></i>รายชื่อผู้เล่นในห้อง</span>
-                    <span id="playerCountText">0 คน</span>
-                </div>
-                <div id="roomPlayerList" class="flex flex-col gap-2 max-h-48 overflow-y-auto">
-                    <!-- Dynamic player list -->
-                </div>
-            </div>
-
-            <div id="hostControls" class="w-full hidden">
-                <button onclick="startMultiplayerGame()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:scale-[1.02] text-white font-black text-lg shadow-lg shadow-pink-500/30 transition-all">
-                    <i class="fa-solid fa-play mr-2"></i>เริ่มการแข่งขัน (สำหรับโฮสต์)
-                </button>
-            </div>
-
-            <div id="clientWaitingText" class="text-center text-sm text-amber-300 animate-pulse py-2">
-                <i class="fa-solid fa-hourglass-half mr-2"></i>กำลังรอโฮสต์กดเริ่มการแข่งขัน...
-            </div>
-
-            <button onclick="leaveRoom()" class="mt-4 text-xs text-rose-400 hover:text-rose-300">
-                <i class="fa-solid fa-door-open mr-1"></i>ออกจากห้อง
-            </button>
-        </div>
-
-        <!-- 4. SCREEN: GAMEPLAY -->
-        <div id="screen-gameplay" class="screen-view w-full max-w-2xl flex-col items-center">
-            
-            <!-- Dashboard -->
-            <div class="w-full grid grid-cols-2 gap-4 mb-4">
-                <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between">
-                    <div class="flex justify-between items-center text-slate-400 text-xs font-semibold mb-1">
-                        <span><i class="fa-solid fa-stopwatch mr-1"></i>เวลา</span>
-                        <span id="timeText" class="text-lg font-black text-amber-400">60s</span>
-                    </div>
-                    <div class="w-full bg-slate-800/80 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700/50">
-                        <div id="timerBar" class="bg-gradient-to-r from-emerald-400 to-amber-400 h-full rounded-full transition-all duration-1000 w-full"></div>
+                <div class="space-y-2 text-left">
+                    <label class="text-xs font-bold text-slate-400 flex justify-between">
+                        <span>รายชื่อผู้เล่นในห้อง</span>
+                        <span id="player-count" class="text-amber-400">0 คน</span>
+                    </label>
+                    <div id="player-list" class="bg-slate-900 border border-slate-700 rounded-xl p-3 min-h-[140px] space-y-2 max-h-[200px] overflow-y-auto">
+                        <!-- Player List Items Dynamic -->
                     </div>
                 </div>
 
-                <div class="glass-panel rounded-2xl p-4 flex justify-between items-center">
-                    <div>
-                        <div class="text-slate-400 text-xs font-semibold"><i class="fa-solid fa-trophy mr-1"></i>คะแนนของคุณ</div>
-                        <div id="scoreDisplay" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-purple-400">
-                            0
-                        </div>
-                    </div>
-                    <div id="wordCountBadge" class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm">
-                        0 คำ
-                    </div>
-                </div>
-            </div>
-
-            <!-- Target Letters -->
-            <div class="w-full glass-panel rounded-3xl p-6 text-center mb-4 glow-box relative">
-                <p class="text-xs text-slate-300 mb-2">ต้องมีตัวอักษรทั้ง 2 ตัวนี้อยู่ในคำของคุณ:</p>
-                <div class="flex justify-center items-center gap-4 my-1">
-                    <div id="targetChar1" class="w-20 h-24 rounded-2xl bg-gradient-to-b from-purple-500/30 to-purple-800/40 border border-purple-400/50 flex items-center justify-center text-4xl font-black text-amber-300 glow-text">
-                        ?
-                    </div>
-                    <span class="text-2xl font-black text-purple-400 animate-pulse">+</span>
-                    <div id="targetChar2" class="w-20 h-24 rounded-2xl bg-gradient-to-b from-pink-500/30 to-pink-800/40 border border-pink-400/50 flex items-center justify-center text-4xl font-black text-amber-300 glow-text">
-                        ?
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input Form -->
-            <form id="wordForm" onsubmit="submitWord(event)" class="w-full mb-4">
-                <div class="relative flex items-center">
-                    <input type="text" id="wordInput" autocomplete="off" placeholder="พิมพ์คำศัพท์ที่นี่..." 
-                        class="w-full py-4 pl-5 pr-32 rounded-2xl bg-slate-900/80 border-2 border-purple-500/40 focus:border-pink-500 focus:outline-none text-xl font-bold shadow-2xl">
-                    <button type="submit" id="submitBtn" class="absolute right-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-bold text-sm shadow-md flex items-center gap-1">
-                        <span id="submitBtnText">ส่งคำ</span>
-                        <i id="submitBtnIcon" class="fa-solid fa-paper-plane text-xs"></i>
+                <div class="space-y-3">
+                    <button id="btn-start-game" onclick="handleStartGame()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-slate-950 font-extrabold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        เริ่มเกมเลย!
+                    </button>
+                    <button onclick="leaveRoom()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2.5 rounded-xl text-sm transition">
+                        ออกจากห้อง
                     </button>
                 </div>
-                <div id="feedbackMsg" class="h-6 mt-2 text-center text-sm font-semibold transition-all opacity-0">
-                    -
+            </div>
+        </div>
+
+        <!-- SCREEN 3: GAMEPLAY -->
+        <div id="screen-game" class="screen-view flex-col items-center justify-between w-full max-w-md space-y-4 relative">
+            
+            <!-- In-Game Notification Banner / Toast inside game screen -->
+            <div id="game-toast-container" class="absolute top-2 left-0 right-0 z-50 flex justify-center pointer-events-none px-4"></div>
+
+            <!-- Header Bar -->
+            <div class="w-full bg-slate-800/90 p-4 rounded-2xl border border-slate-700 shadow-lg flex justify-between items-center">
+                <div>
+                    <span class="text-xs text-slate-400 block">เวลาที่เหลือ</span>
+                    <span id="game-timer" class="text-3xl font-extrabold text-amber-400">60</span>
                 </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400 block">คะแนนของคุณ</span>
+                    <span id="game-score" class="text-3xl font-extrabold text-emerald-400">0</span>
+                </div>
+            </div>
+
+            <!-- Target Letter Display -->
+            <div class="w-full bg-slate-800/90 p-6 rounded-2xl border border-slate-700 shadow-xl text-center space-y-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">หมวดหมู่ / ตัวอักษรขึ้นต้น</span>
+                <div id="target-letter" class="text-6xl font-black text-amber-400 animate-pulse">ก</div>
+                <p id="word-hint" class="text-xs text-slate-400">พิมพ์คำที่มีความหมายขึ้นต้นด้วยตัวอักษรนี้</p>
+            </div>
+
+            <!-- Input Box -->
+            <form onsubmit="submitWord(event)" class="w-full flex gap-2">
+                <input type="text" id="input-word" placeholder="พิมพ์คำศัพท์ที่มีความหมาย..." autocomplete="off" class="w-full px-4 py-3.5 bg-slate-800 border border-slate-700 rounded-xl text-center text-lg font-bold focus:outline-none focus:border-amber-500">
+                <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold px-6 rounded-xl shadow transition active:scale-95">
+                    ส่ง
+                </button>
             </form>
 
-            <!-- Entered Words & Live Scoreboard -->
-            <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="glass-panel rounded-2xl p-4 max-h-40 flex flex-col">
-                    <div class="text-xs font-semibold text-slate-400 mb-2 flex justify-between">
-                        <span><i class="fa-solid fa-list-check mr-1"></i>คำของคุณ</span>
-                        <span id="validWordsCount">0 คำ</span>
-                    </div>
-                    <div id="wordsList" class="flex flex-wrap gap-2 overflow-y-auto max-h-28 p-1">
-                        <span class="text-xs text-slate-500 italic">ยังไม่มีคำศัพท์...</span>
-                    </div>
-                </div>
-                <div id="liveLeaderboardContainer" class="glass-panel rounded-2xl p-4 max-h-40 flex flex-col">
-                    <div class="text-xs font-semibold text-amber-400 mb-2">
-                        <i class="fa-solid fa-ranking-star mr-1"></i>คะแนนสดผู้เล่นในห้อง
-                    </div>
-                    <div id="liveLeaderboard" class="flex flex-col gap-1.5 overflow-y-auto max-h-28">
-                        <!-- Realtime leaderboard -->
-                    </div>
+            <!-- Scoreboard Small -->
+            <div class="w-full bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <div class="text-xs font-bold text-slate-400 mb-2">คะแนนเพื่อนในห้อง</div>
+                <div id="in-game-scoreboard" class="space-y-1 max-h-24 overflow-y-auto text-sm">
+                    <!-- Realtime score updates -->
                 </div>
             </div>
-
         </div>
 
-        <!-- 5. SCREEN: RESULT -->
-        <div id="screen-result" class="screen-view w-full glass-panel rounded-3xl p-6 md:p-8 text-center max-w-lg shadow-2xl flex-col items-center animate-pop">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-tr from-amber-400 to-pink-500 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/30">
-                <i class="fa-solid fa-trophy text-slate-900"></i>
-            </div>
-            <h2 class="text-2xl font-extrabold mb-1">จบการแข่งขัน!</h2>
-            <p class="text-xs text-slate-400 mb-4">สรุปผลคะแนนอย่างเป็นทางการ</p>
-
-            <div class="glass-card rounded-2xl p-4 mb-4 w-full">
-                <div class="text-xs text-slate-400 mb-1">คะแนนรวมของคุณ</div>
-                <div id="finalScore" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-400">
-                    0
+        <!-- SCREEN 4: GAME OVER / RESULT -->
+        <div id="screen-result" class="screen-view flex-col items-center justify-center w-full max-w-md space-y-6 text-center">
+            <div class="bg-slate-800/90 w-full p-6 rounded-2xl border border-slate-700 shadow-xl space-y-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-amber-400 mb-1">หมดเวลาแล้ว!</h2>
+                    <p class="text-xs text-slate-400">สรุปผลการแข่งขันและคำศัพท์ที่ตอบ</p>
                 </div>
-            </div>
 
-            <!-- Multiplayer Rank Table -->
-            <div id="finalLeaderboardContainer" class="w-full glass-card p-4 rounded-2xl mb-6 hidden">
-                <h3 class="text-xs font-bold text-amber-400 mb-2 text-left"><i class="fa-solid fa-medal mr-1"></i>อันดับผู้ชนะในห้อง</h3>
-                <div id="finalLeaderboard" class="flex flex-col gap-2">
-                    <!-- Final result list -->
+                <!-- Leaderboard & Word Summary -->
+                <div id="result-leaderboard" class="space-y-4 text-left bg-slate-900 p-4 rounded-xl border border-slate-700 max-h-80 overflow-y-auto">
+                    <!-- Leaderboard Result & Word Details Dynamic -->
                 </div>
-            </div>
 
-            <div class="flex gap-3 w-full">
-                <button onclick="navigateTo('screen-start')" class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-extrabold text-sm shadow-lg shadow-pink-500/25">
-                    <i class="fa-solid fa-home mr-2"></i>กลับหน้าหลัก
+                <button onclick="backToLobby()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95">
+                    กลับไปยังห้องรอ (Lobby)
                 </button>
             </div>
         </div>
+    </div>
 
-    </main>
+    <!-- STICKER REACTION BAR (Bottom Bar during Game) -->
+    <div id="sticker-bar" class="w-full bg-slate-950/80 border-t border-slate-800 p-3 hidden justify-center items-center gap-3 z-30">
+        <span class="text-xs font-bold text-slate-400 mr-1">ส่งสติกเกอร์:</span>
+        <button onclick="sendSticker('🔥')" class="text-2xl hover:scale-125 transition active:scale-90">🔥</button>
+        <button onclick="sendSticker('👏')" class="text-2xl hover:scale-125 transition active:scale-90">👏</button>
+        <button onclick="sendSticker('😂')" class="text-2xl hover:scale-125 transition active:scale-90">😂</button>
+        <button onclick="sendSticker('😎')" class="text-2xl hover:scale-125 transition active:scale-90">😎</button>
+        <button onclick="sendSticker('😱')" class="text-2xl hover:scale-125 transition active:scale-90">😱</button>
+        <button onclick="sendSticker('💩')" class="text-2xl hover:scale-125 transition active:scale-90">💩</button>
+    </div>
 
-    <footer class="max-w-4xl w-full mx-auto text-center py-2 text-xs text-slate-500">
-        Word Rush Game &copy; 2026 - Realtime Multiplayer Powered by Firebase
-    </footer>
+    <!-- Firebase SDK Modular (v9+) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, get, onValue, update, remove, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    <!-- Audio & BGM Sound Manager -->
-    <script>
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        let isBgmPlaying = false;
-        const bgmAudio = new Audio();
-        
-        // ลิงก์เพลง BGM จังหวะสนุกๆ สนับสนุน Royalty-Free (เปลี่ยน URL เพลงตรงนี้ได้ตามชอบ)
-        bgmAudio.src = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=fun-puzzle-loop-116345.mp3';
-        bgmAudio.loop = true;
-        bgmAudio.volume = 0.3; // ระดับเสียง BGM 30%
-
-        function initAudio() { 
-            if (!audioCtx) audioCtx = new AudioCtx(); 
-        }
-
-        function toggleBGM() {
-            initAudio();
-            const icon = document.getElementById('bgmIcon');
-            if (isBgmPlaying) {
-                bgmAudio.pause();
-                isBgmPlaying = false;
-                icon.className = 'fa-solid fa-volume-xmark text-sm';
-            } else {
-                bgmAudio.play().then(() => {
-                    isBgmPlaying = true;
-                    icon.className = 'fa-solid fa-volume-high text-sm text-amber-300';
-                }).catch(err => {
-                    console.log("BGM autoplay prevented:", err);
-                });
-            }
-        }
-
-        function playSound(type) {
-            try {
-                initAudio();
-                if (!audioCtx) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                const now = audioCtx.currentTime;
-                if (type === 'success') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(523.25, now);
-                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2);
-                    gain.gain.setValueAtTime(0.2, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                    osc.start(now); osc.stop(now + 0.3);
-                } else if (type === 'error') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(180, now);
-                    osc.frequency.linearRampToValueAtTime(110, now + 0.2);
-                    gain.gain.setValueAtTime(0.2, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now); osc.stop(now + 0.2);
-                } else if (type === 'start') {
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(440, now);
-                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
-                    gain.gain.setValueAtTime(0.2, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                    osc.start(now); osc.stop(now + 0.3);
-                }
-            } catch (e) {}
-        }
-    </script>
-
-    <!-- Game Logic & Firebase Integration -->
-    <script>
-        // --- 1. USER FIREBASE CONFIG ---
+        // Firebase Configuration (ProjectLobbyGame)
         const firebaseConfig = {
             apiKey: "AIzaSyCm5S4mGQ8X7R6aYNYlqG6bzLlYMX44wbk",
             authDomain: "projectlobbygame.firebaseapp.com",
@@ -407,329 +198,473 @@
             measurementId: "G-S0Z0NL6Q4G"
         };
 
-        // Initialize Firebase Compat
-        let db = null;
-        try {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            db = firebase.database();
-        } catch (err) {
-            console.error("Firebase init failed:", err);
-        }
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-        // --- 2. GAME STATE VARIABLES ---
-        const THAI_ALPHABET = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
-        const ENG_ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+        // Global Game States
+        window.gameState = {
+            currentScreen: 'menu',
+            username: '',
+            roomCode: '',
+            isHost: false,
+            score: 0,
+            timer: 60,
+            timerInterval: null,
+            targetLetter: 'ก',
+            usedWords: new Set(),
+            submittedWordsList: [],
+            isSolo: false,
+            bgmPlaying: false
+        };
 
-        let currentLang = 'th';
-        let playerName = '';
-        let playerId = 'player_' + Math.random().toString(36).substr(2, 9);
-        let roomCode = null;
-        let isHost = false;
-        let roomRef = null;
+        const THAI_CHARACTERS = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ด', 'ต', 'ถ', 'ท', 'น', 'บ', 'ป', 'ผ', 'พ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ส', 'ห', 'อ'];
+        
+        // Expanded Thai Dictionary (Including "ถูกต้อง" and common words)
+        const THAI_DICTIONARY = new Set([
+            "กะ", "กาล", "การ", "กำ", "กิน", "ไก่", "แก้ว", "ใกล้", "ไกด์", "เกลือ", "เก้าอี้", "กระเป๋า", "กระต่าย", "กระจก", "กระดาษ", "กระทะ", "กระบือ", "กวาง", "กุ้ง", "กล้วย", "กลอง", "กล่อง", "กอด", "ก้าน", "ก้าว", "กู", "เก่ง", "เก้า", "เก็บ", "เกี่ยว", "เกลียด", "โกหก", "ไก่ชน", 
+            "ขวด", "ข้าว", "ขา", "ขาว", "ขาล", "ข้าม", "ขำ", "ขุด", "เขียว", "แขน", "แข็ง", "ไข่", "เข้าใจ", "ของ", "ขอ", "ขอบ", "ขโมย", "ขยัน", "ขับ", "ขี่", "ขี้",
+            "คน", "คอ", "ค้อน", "คำ", "ค้างคาว", "คุณ", "คู่", "เคย", "เค้ก", "เครื่อง", "ความ", "ควาย", "ความสุข", "คลัง", "คลังสินค้า", "ค้าง",
+            "งู", "งาน", "เงา", "เงิน", "ง่วง", "งอน", "ง่าย", "งับ",
+            "จาน", "ใจ", "จับ", "จาก", "จริง", "จระเข้", "จักรยาน", "จันทร์", "จดหมาย", "จอด", "จูบ", "เจ็บ", "แจกัน",
+            "ฉลาม", "ฉอง", "ฉาย", "ฉลาด",
+            "ช้าง", "ช้อน", "ชาย", "ชาติ", "ช้า", "ชอบ", "ช่วย", "ชิม", "ชีส", "ชุบ",
+            "ซ่อม", "ซัก", "ซอง", "ซี้", "ซื้อ", "ซ่อน",
+            "ดาบ", "ดาว", "ดิน", "เด็ก", "เดิน", "ดู", "ดอกไม้", "แดง", "แดด", "โดย",
+            "ตา", "โต๊ะ", "ตัว", "แตงโม", "เต่า", "ไต", "ไต่", "ไตร", "ตำรวจ", "ตลาด", "ตลก", "ตอบ", "ตัก", "ตึก", "ตื่น", "ตบ",
+            "ถุง", "ถนน", "ถาม", "ถัง", "ถั่ว", "ถูกต้อง", "ถูลู่ถูกัง", "ถอน",
+            "ทราย", "ทอง", "ทะเล", "ทุเรียน", "เทียน", "โทรศัพท์", "ทหาร", "ทาง", "ทำงาน", "ท้อ",
+            "นก", "นา", "น้ำ", "นาฬิกา", "นอน", "เนื้อ", "เนย", "น้อง", "นั่น", "นี่", "ใน",
+            "บาน", "ใบไม้", "บ้าน", "บัว", "บอก", "บิน", "เบอร์", "แบก", "บอล",
+            "ปลา", "ปู", "ปาก", "ป่า", "แป้ง", "ปี", "ปวด", "ปืน", "ปั่น",
+            "ผึ้ง", "ผ้า", "ผัก", "แผง", "แผ่นดิน", "ผู้", "ผ่าน",
+            "พระ", "พัด", "พ่อ", "พี่", "พูด", "เพลง", "แพะ", "เพื่อน", "เพิ่ม", "แพ้",
+            "มา", "แม่", "มือ", "เมือง", "ม้า", "แมว", "มด", "มืด", "มกราคม", "มอง",
+            "ยา", "ยุง", "ยักษ์", "ยิ้ม", "เย็น", "ยอด", "หยุด", "ย่าง",
+            "รถ", "รัก", "รูป", "เรือ", "โรงเรียน", "ไร่", "ร้อน", "รวย", "ร้อง", "รำ",
+            "ลิง", "ลุง", "ลูก", "โลก", "ลืม", "ลาน", "ลื่น", "เล็บ", "เล่น", "แล้ว",
+            "วัว", "ว่า", "เวลา", "วัด", "หวี", "หวัง", "วิ่ง", "วาด",
+            "เสือ", "เสื้อ", "สิงโต", "สม", "สวน", "สวย", "สาย", "ส้ม", "สาว", "สูง", "สอน", "สุข",
+            "หู", "หมา", "หมู", "หนู", "หน้า", "หิน", "ห้อง", "หาย", "เหรียญ", "ใหม่", "ใหญ่",
+            "อ่าง", "อาบน้ำ", "อาหาร", "อากาศ", "อ้วน", "อิ่ม", "เอา", "อาจารย์", "อ่าน", "อ่าว"
+        ]);
 
-        let targetChar1 = '';
-        let targetChar2 = '';
-        let score = 0;
-        let timeLeft = 60;
-        let timerInterval = null;
-        let submittedWords = new Set();
-        let isPlaying = false;
-        let isMultiplayer = false;
+        // Robust Audio Setup (BGM)
+        const bgmAudio = new Audio();
+        const BGM_URL = 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=upbeat-funky-retro-10986.mp3';
+        bgmAudio.src = BGM_URL;
+        bgmAudio.loop = true;
+        bgmAudio.volume = 0.4;
+        bgmAudio.crossOrigin = "anonymous";
 
-        // Thai Dictionary Sample for instant lookup
-        const THAI_DICTIONARY = new Set(['กนก', 'กระดาษ', 'กระต่าย', 'กระเป๋า', 'กล้วย', 'กล่อง', 'คน', 'คณิตศาสตร์', 'คอมพิวเตอร์', 'งาน', 'จดหมาย', 'จักรยาน', 'ช้าง', 'ชีวิต', 'ดอกไม้', 'ดนตรี', 'ตลาด', 'ทะเล', 'บ้าน', 'ปลา', 'ผีเสื้อ', 'ฝน', 'พัดลม', 'ภาษา', 'แมว', 'โรงเรียน', 'เสือ', 'หนังสือ', 'อาหาร']);
-        const PROFANITY = ['ควย', 'เย็ด', 'เหี้ย', 'มึง', 'กู', 'FUCK', 'SHIT', 'BITCH', 'CUNT'];
-
-        // --- 3. NAVIGATION ROUTER ---
-        function navigateTo(screenId) {
-            document.querySelectorAll('.screen-view').forEach(s => s.classList.remove('active'));
-            const target = document.getElementById(screenId);
-            if (target) target.classList.add('active');
-        }
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            document.getElementById('btnThai').className = lang === 'th' ? "px-3 py-1 text-xs rounded-full font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow" : "px-3 py-1 text-xs rounded-full font-bold text-slate-400";
-            document.getElementById('btnEng').className = lang === 'en' ? "px-3 py-1 text-xs rounded-full font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow" : "px-3 py-1 text-xs rounded-full font-bold text-slate-400";
-        }
-
-        function getPlayerName() {
-            const input = document.getElementById('playerNameInput').value.trim();
-            return input || 'ผู้เล่น_' + Math.floor(100 + Math.random() * 900);
-        }
-
-        // --- 4. MULTIPLAYER LOGIC ---
-        function goToLobby() {
-            playerName = getPlayerName();
-            navigateTo('screen-lobby');
-        }
-
-        function createNewRoom() {
-            roomCode = Math.floor(100000 + Math.random() * 900000).toString();
-            isHost = true;
-            isMultiplayer = true;
+        window.toggleBGM = function() {
+            const icon = document.getElementById('bgm-icon');
+            const btn = document.getElementById('bgm-toggle-btn');
             
-            document.getElementById('displayRoomCode').textContent = roomCode;
-            document.getElementById('hostControls').classList.remove('hidden');
-            document.getElementById('clientWaitingText').classList.add('hidden');
-
-            if (db) {
-                roomRef = db.ref('rooms/' + roomCode);
-                roomRef.set({
-                    status: 'waiting',
-                    host: playerId,
-                    lang: currentLang,
-                    char1: '',
-                    char2: '',
-                    players: {
-                        [playerId]: { name: playerName, score: 0, isHost: true }
-                    }
+            if (window.gameState.bgmPlaying) {
+                bgmAudio.pause();
+                window.gameState.bgmPlaying = false;
+                icon.className = 'fas fa-volume-mute text-xl';
+                btn.classList.remove('animate-pulse');
+            } else {
+                bgmAudio.play().then(() => {
+                    window.gameState.bgmPlaying = true;
+                    icon.className = 'fas fa-volume-up text-xl';
+                    btn.classList.add('animate-pulse');
+                }).catch(err => {
+                    console.error("Audio playback error:", err);
+                    bgmAudio.src = 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg';
+                    bgmAudio.play().then(() => {
+                        window.gameState.bgmPlaying = true;
+                        icon.className = 'fas fa-volume-up text-xl';
+                        btn.classList.add('animate-pulse');
+                    }).catch(e2 => {
+                        console.error("Fallback audio failed:", e2);
+                        alert("เบราว์เซอร์บล็อกการเล่นเสียงอัตโนมัติ กรุณากดปุ่มเปิดเสียงอีกครั้งครับ");
+                    });
                 });
-                listenToRoom();
             }
+        };
 
-            navigateTo('screen-room');
+        // In-Game Toast Notification Function
+        window.showGameToast = function(message, type = 'error') {
+            const container = document.getElementById('game-toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600/90 border-emerald-400 text-white' : 'bg-rose-600/90 border-rose-400 text-white';
+            toast.className = `toast-notification px-4 py-2 rounded-xl shadow-xl border text-sm font-bold flex items-center gap-2 backdrop-blur-md ${bgColor}`;
+            
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+            
+            container.innerHTML = '';
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) toast.remove();
+            }, 2500);
+        };
+
+        // Screen Navigation Router
+        window.showScreen = function(screenId) {
+            document.querySelectorAll('.screen-view').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(`screen-${screenId}`);
+            if (target) target.classList.add('active');
+            
+            const stickerBar = document.getElementById('sticker-bar');
+            if (screenId === 'game' && !window.gameState.isSolo) {
+                stickerBar.classList.remove('hidden');
+                stickerBar.classList.add('flex');
+            } else {
+                stickerBar.classList.add('hidden');
+                stickerBar.classList.remove('flex');
+            }
+        };
+
+        // Helper: Generate 6-digit Code
+        function generateRoomCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
         }
 
-        function joinExistingRoom() {
-            const code = document.getElementById('roomCodeInput').value.trim();
-            if (code.length !== 6) {
-                alert('กรุณากรอกรหัสห้อง 6 หลัก');
-                return;
+        // Host Create Room
+        window.handleCreateRoom = async function() {
+            const name = document.getElementById('input-username').value.trim();
+            if (!name) return alert('กรุณากรอกชื่อผู้เล่นก่อนครับ');
+
+            window.gameState.username = name;
+            window.gameState.isHost = true;
+            window.gameState.roomCode = generateRoomCode();
+            window.gameState.isSolo = false;
+
+            const roomRef = ref(db, `rooms/${window.gameState.roomCode}`);
+            await set(roomRef, {
+                status: 'waiting',
+                host: name,
+                targetLetter: THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)],
+                players: {
+                    [name]: { name: name, score: 0, isHost: true, words: {} }
+                }
+            });
+
+            document.getElementById('lobby-room-code').innerText = window.gameState.roomCode;
+            window.showScreen('lobby');
+            listenToRoomUpdates(window.gameState.roomCode);
+        };
+
+        // Join Room
+        window.handleJoinRoom = async function() {
+            const name = document.getElementById('input-username').value.trim();
+            const code = document.getElementById('input-room-code').value.trim();
+
+            if (!name) return alert('กรุณากรอกชื่อผู้เล่น');
+            if (code.length !== 6) return alert('กรุณากรอกรหัสห้อง 6 หลักให้ถูกต้อง');
+
+            window.gameState.username = name;
+            window.gameState.isHost = false;
+            window.gameState.roomCode = code;
+            window.gameState.isSolo = false;
+
+            const roomRef = ref(db, `rooms/${code}`);
+            const snapshot = await get(roomRef);
+
+            if (!snapshot.exists()) {
+                return alert('ไม่พบห้องนี้ กรุณาตรวจสอบรหัสห้องอีกครั้ง');
             }
-            roomCode = code;
-            isHost = false;
-            isMultiplayer = true;
 
-            document.getElementById('displayRoomCode').textContent = roomCode;
-            document.getElementById('hostControls').classList.add('hidden');
-            document.getElementById('clientWaitingText').classList.remove('hidden');
-
-            if (db) {
-                roomRef = db.ref('rooms/' + roomCode);
-                roomRef.child('players/' + playerId).set({
-                    name: playerName,
-                    score: 0,
-                    isHost: false
-                });
-                listenToRoom();
+            const roomData = snapshot.val();
+            if (roomData.status !== 'waiting') {
+                return alert('ห้องนี้กำลังเริ่มแข่งขันอยู่ ไม่สามารถเข้าได้ในขณะนี้');
             }
 
-            navigateTo('screen-room');
-        }
+            await update(ref(db, `rooms/${code}/players/${name}`), {
+                name: name,
+                score: 0,
+                isHost: false,
+                words: {}
+            });
 
-        function listenToRoom() {
-            if (!roomRef) return;
-            roomRef.on('value', snapshot => {
-                const data = snapshot.val();
-                if (!data) return;
+            document.getElementById('lobby-room-code').innerText = code;
+            window.showScreen('lobby');
+            listenToRoomUpdates(code);
+        };
 
-                // Update Player List
-                if (data.players) {
-                    const listEl = document.getElementById('roomPlayerList');
-                    const players = Object.values(data.players);
-                    document.getElementById('playerCountText').textContent = `${players.length} คน`;
-                    
-                    listEl.innerHTML = players.map(p => `
-                        <div class="flex justify-between items-center bg-white/5 px-3 py-2 rounded-xl text-sm">
-                            <span class="font-bold text-white"><i class="fa-solid fa-user text-purple-400 mr-2"></i>${escapeHtml(p.name)}</span>
-                            ${p.isHost ? '<span class="text-[10px] bg-amber-500/30 text-amber-300 font-bold px-2 py-0.5 rounded-full">HOST</span>' : ''}
+        // Listen to Firebase Realtime Database
+        function listenToRoomUpdates(code) {
+            const roomRef = ref(db, `rooms/${code}`);
+            onValue(roomRef, (snapshot) => {
+                if (!snapshot.exists()) return;
+                const room = snapshot.val();
+
+                // 1. Update Player List in Lobby
+                const playerListEl = document.getElementById('player-list');
+                const playerCountEl = document.getElementById('player-count');
+                const startBtn = document.getElementById('btn-start-game');
+                
+                if (room.players) {
+                    const players = Object.values(room.players);
+                    playerCountEl.innerText = `${players.length} คน`;
+                    playerListEl.innerHTML = players.map(p => `
+                        <div class="flex justify-between items-center bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                            <span class="font-bold ${p.name === window.gameState.username ? 'text-amber-400' : 'text-slate-200'}">
+                                ${p.name} ${p.isHost ? '👑 (Host)' : ''}
+                            </span>
+                            <span class="text-xs text-emerald-400 font-semibold">พร้อม</span>
                         </div>
                     `).join('');
 
-                    // Update live scoreboard during game
-                    const liveLb = document.getElementById('liveLeaderboard');
-                    if (liveLb) {
-                        const sorted = players.sort((a,b) => b.score - a.score);
-                        liveLb.innerHTML = sorted.map(p => `
-                            <div class="flex justify-between items-center text-xs bg-white/5 px-2.5 py-1 rounded-lg">
-                                <span class="truncate max-w-[100px]">${escapeHtml(p.name)}</span>
-                                <span class="font-bold text-amber-300">${p.score} pt</span>
-                            </div>
-                        `).join('');
+                    if (window.gameState.isHost) {
+                        startBtn.style.display = 'block';
+                        startBtn.disabled = false;
+                    } else {
+                        startBtn.style.display = 'none';
                     }
                 }
 
-                // Game Start Signal
-                if (data.status === 'playing' && !isPlaying) {
-                    targetChar1 = data.char1;
-                    targetChar2 = data.char2;
-                    currentLang = data.lang || 'th';
-                    startActualGame();
+                // 2. Sync In-Game Scoreboard
+                if (room.players && document.getElementById('in-game-scoreboard')) {
+                    const sortedPlayers = Object.values(room.players).sort((a, b) => b.score - a.score);
+                    document.getElementById('in-game-scoreboard').innerHTML = sortedPlayers.map(p => `
+                        <div class="flex justify-between items-center text-slate-300">
+                            <span>${p.name}</span>
+                            <span class="font-bold text-amber-400">${p.score} คะแนน</span>
+                        </div>
+                    `).join('');
+                }
+
+                // 3. Game Start Trigger
+                if (room.status === 'playing' && window.gameState.currentScreen !== 'game') {
+                    window.gameState.targetLetter = room.targetLetter || 'ก';
+                    window.gameState.currentScreen = 'game';
+                    document.getElementById('target-letter').innerText = window.gameState.targetLetter;
+                    window.showScreen('game');
+                    runGameTimer();
+                }
+
+                // 4. Game Over Trigger
+                if (room.status === 'finished' && window.gameState.currentScreen !== 'result') {
+                    window.gameState.currentScreen = 'result';
+                    renderResultLeaderboard(room.players);
+                    window.showScreen('result');
+                }
+            });
+
+            // Listen to Stickers Realtime
+            const stickerRef = ref(db, `rooms/${code}/stickers`);
+            onChildAdded(stickerRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.sender !== window.gameState.username) {
+                    displayFloatingSticker(data.sender, data.sticker);
                 }
             });
         }
 
-        function startMultiplayerGame() {
-            if (!isHost || !roomRef) return;
-            const pool = currentLang === 'th' ? THAI_ALPHABET : ENG_ALPHABET;
-            const c1 = pool[Math.floor(Math.random() * pool.length)];
-            let c2 = pool[Math.floor(Math.random() * pool.length)];
-            while (c1 === c2) c2 = pool[Math.floor(Math.random() * pool.length)];
-
-            roomRef.update({
+        // Host Click Start Game
+        window.handleStartGame = async function() {
+            if (!window.gameState.isHost) return;
+            const targetChar = THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)];
+            await update(ref(db, `rooms/${window.gameState.roomCode}`), {
                 status: 'playing',
-                char1: c1,
-                char2: c2
+                targetLetter: targetChar
             });
-        }
+        };
 
-        function leaveRoom() {
-            if (roomRef) {
-                roomRef.child('players/' + playerId).remove();
-                roomRef.off();
+        // Solo Mode
+        window.startSoloMode = function() {
+            const name = document.getElementById('input-username').value.trim() || 'ผู้เล่นเดี่ยว';
+            window.gameState.username = name;
+            window.gameState.isSolo = true;
+            window.gameState.targetLetter = THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)];
+            window.gameState.score = 0;
+            window.gameState.submittedWordsList = [];
+            
+            document.getElementById('target-letter').innerText = window.gameState.targetLetter;
+            document.getElementById('game-score').innerText = '0';
+            window.gameState.currentScreen = 'game';
+            window.showScreen('game');
+            runGameTimer();
+        };
+
+        // Submit Word Logic with Dictionary & Repetition Filter
+        window.submitWord = async function(e) {
+            e.preventDefault();
+            const inputEl = document.getElementById('input-word');
+            const word = inputEl.value.trim();
+            inputEl.value = '';
+
+            if (!word) return;
+
+            // 1. ตรวจสอบตัวอักษรขึ้นต้น
+            if (!word.startsWith(window.gameState.targetLetter)) {
+                window.showGameToast(`ต้องขึ้นต้นด้วยตัวอักษร "${window.gameState.targetLetter}" เท่านั้น!`, 'error');
+                return;
             }
-            navigateTo('screen-lobby');
-        }
 
-        // --- 5. SINGLEPLAYER & GAME CORE ---
-        function startSinglePlayer() {
-            isMultiplayer = false;
-            playerName = getPlayerName();
-            const pool = currentLang === 'th' ? THAI_ALPHABET : ENG_ALPHABET;
-            targetChar1 = pool[Math.floor(Math.random() * pool.length)];
-            targetChar2 = pool[Math.floor(Math.random() * pool.length)];
-            startActualGame();
-        }
+            // 2. ตรวจสอบความถูกต้องจากพจนานุกรม
+            if (!THAI_DICTIONARY.has(word)) {
+                window.showGameToast(`"${word}" ไม่มีในพจนานุกรมคำศัพท์ที่ถูกต้อง!`, 'error');
+                return;
+            }
 
-        function startActualGame() {
-            playSound('start');
-            score = 0;
-            timeLeft = 60;
-            submittedWords.clear();
-            isPlaying = true;
+            // 3. ป้องกันคำซ้ำที่เคยตอบไปแล้วในรอบนี้
+            if (window.gameState.usedWords.has(word)) {
+                window.showGameToast('คำนี้ถูกใช้ตอบไปแล้วครับ!', 'error');
+                return;
+            }
 
-            document.getElementById('scoreDisplay').textContent = '0';
-            document.getElementById('wordCountBadge').textContent = '0 คำ';
-            document.getElementById('validWordsCount').textContent = '0 คำ';
-            document.getElementById('wordsList').innerHTML = '<span class="text-xs text-slate-500 italic">ยังไม่มีคำศัพท์...</span>';
-            document.getElementById('targetChar1').textContent = targetChar1;
-            document.getElementById('targetChar2').textContent = targetChar2;
+            // 4. ตรวจจับการวนซ้ำของข้อความในคำเดียวกัน
+            const hasRepeatedSubstrings = (str) => {
+                for (let len = 2; len <= Math.floor(str.length / 2); len++) {
+                    for (let i = 0; i <= str.length - (len * 2); i++) {
+                        const sub = str.substring(i, i + len);
+                        const nextSub = str.substring(i + len, i + (len * 2));
+                        if (sub === nextSub) return true;
+                    }
+                }
+                return false;
+            };
 
-            navigateTo('screen-gameplay');
-            document.getElementById('wordInput').value = '';
-            document.getElementById('wordInput').focus();
+            if (hasRepeatedSubstrings(word)) {
+                window.showGameToast('ไม่อนุญาตให้พิมพ์พยางค์ซ้ำวนในคำเดียวกันเพื่อปั๊มคะแนน!', 'error');
+                return;
+            }
 
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timeText').textContent = `${timeLeft}s`;
-                document.getElementById('timerBar').style.width = `${(timeLeft / 60) * 100}%`;
-                if (timeLeft <= 0) endGame();
+            // 5. ตรวจจับตัวอักษรซ้ำติดกันเกิน 2 ตัว
+            if (/(.)\1{2,}/.test(word)) {
+                window.showGameToast('ไม่อนุญาตให้พิมพ์ตัวอักษรเดิมซ้ำกันเกิน 2 ตัว!', 'error');
+                return;
+            }
+
+        window.gameState.usedWords.add(word);
+            const gainedScore = Math.min(word.length * 10, 150);
+            window.gameState.score += gainedScore;
+            window.gameState.submittedWordsList.push({ word: word, pts: gainedScore });
+            
+            document.getElementById('game-score').innerText = window.gameState.score;
+
+            window.showGameToast(`+${gainedScore} คะแนนเยี่ยมมาก!`, 'success');
+
+            // Sync Score & Words to Firebase if Multiplayer
+            if (!window.gameState.isSolo) {
+                const pRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}`);
+                await update(pRef, {
+                    score: window.gameState.score
+                });
+                const wordRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}/words`);
+                await push(wordRef, { word: word, pts: gainedScore });
+            }
+        };
+
+        // Game Timer (60s)
+        function runGameTimer() {
+            window.gameState.timer = 60;
+            document.getElementById('game-timer').innerText = '60';
+            window.gameState.usedWords.clear();
+            window.gameState.submittedWordsList = [];
+            window.gameState.score = 0;
+            document.getElementById('game-score').innerText = '0';
+
+            clearInterval(window.gameState.timerInterval);
+            window.gameState.timerInterval = setInterval(async () => {
+                window.gameState.timer--;
+                document.getElementById('game-timer').innerText = window.gameState.timer;
+
+                if (window.gameState.timer <= 0) {
+                    clearInterval(window.gameState.timerInterval);
+                    if (!window.gameState.isSolo && window.gameState.isHost) {
+                        await update(ref(db, `rooms/${window.gameState.roomCode}`), { status: 'finished' });
+                    } else if (window.gameState.isSolo) {
+                        renderSoloResult();
+                    }
+                }
             }, 1000);
         }
 
-        async function submitWord(e) {
-            e.preventDefault();
-            if (!isPlaying) return;
-
-            const input = document.getElementById('wordInput');
-            const word = input.value.trim().toUpperCase();
-            if (!word) return;
-
-            // Profanity Check
-            for (let bad of PROFANITY) {
-                if (word.includes(bad)) {
-                    showFeedback('🚫 ห้ามใช้คำไม่สุภาพ!', 'error');
-                    playSound('error');
-                    input.value = '';
-                    return;
-                }
-            }
-
-            if (submittedWords.has(word)) {
-                showFeedback('คำนี้ใช้ไปแล้ว!', 'error');
-                playSound('error');
-                return;
-            }
-
-            if (!word.includes(targetChar1.toUpperCase()) || !word.includes(targetChar2.toUpperCase())) {
-                showFeedback(`ต้องมีอักษร ${targetChar1} และ ${targetChar2}`, 'error');
-                playSound('error');
-                return;
-            }
-
-            // Word Validation
-            let isValid = true;
-            if (currentLang === 'en') {
-                try {
-                    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
-                    isValid = res.ok;
-                } catch { isValid = true; }
-            } else {
-                isValid = THAI_DICTIONARY.has(word) || (word.length >= 2 && /[ก-ฮ]/.test(word));
-            }
-
-            if (!isValid) {
-                showFeedback('❌ ไม่พบคำนี้ในพจนานุกรม', 'error');
-                playSound('error');
-                return;
-            }
-
-            // Points calculation
-            const pts = word.length * 10 + (word.length >= 5 ? 20 : 0);
-            score += pts;
-            submittedWords.add(word);
-
-            playSound('success');
-            showFeedback(`+${pts} คะแนน!`, 'success');
-
-            document.getElementById('scoreDisplay').textContent = score;
-            document.getElementById('wordCountBadge').textContent = `${submittedWords.size} คำ`;
-            document.getElementById('validWordsCount').textContent = `${submittedWords.size} คำ`;
-
-            const badge = document.createElement('div');
-            badge.className = "glass-card px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 border border-purple-500/30";
-            badge.innerHTML = `<span>${escapeHtml(word)}</span><span class="text-[10px] text-purple-300 font-bold">+${pts}</span>`;
-            document.getElementById('wordsList').prepend(badge);
-
-            if (isMultiplayer && roomRef) {
-                roomRef.child('players/' + playerId + '/score').set(score);
-            }
-
-            input.value = '';
-            input.focus();
-        }
-
-        function showFeedback(msg, type) {
-            const el = document.getElementById('feedbackMsg');
-            el.textContent = msg;
-            el.className = `h-6 mt-2 text-center text-sm font-semibold transition-all ${type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`;
-            setTimeout(() => el.classList.add('opacity-0'), 2000);
-        }
-
-        function endGame() {
-            clearInterval(timerInterval);
-            isPlaying = false;
-
-            document.getElementById('finalScore').textContent = score;
-
-            if (isMultiplayer && roomRef) {
-                document.getElementById('finalLeaderboardContainer').classList.remove('hidden');
-                roomRef.child('players').once('value', snapshot => {
-                    const players = Object.values(snapshot.val() || {});
-                    players.sort((a, b) => b.score - a.score);
-                    document.getElementById('finalLeaderboard').innerHTML = players.map((p, i) => `
-                        <div class="flex justify-between items-center bg-white/5 p-2 rounded-xl text-sm">
-                            <span><b>#${i+1}</b> ${escapeHtml(p.name)}</span>
-                            <span class="font-extrabold text-amber-300">${p.score} คะแนน</span>
-                        </div>
-                    `).join('');
+        // Send Sticker Realtime
+        window.sendSticker = async function(stickerEmoji) {
+            displayFloatingSticker(window.gameState.username, stickerEmoji);
+            if (!window.gameState.isSolo) {
+                const stickersRef = ref(db, `rooms/${window.gameState.roomCode}/stickers`);
+                await push(stickersRef, {
+                    sender: window.gameState.username,
+                    sticker: stickerEmoji,
+                    timestamp: Date.now()
                 });
-            } else {
-                document.getElementById('finalLeaderboardContainer').classList.add('hidden');
             }
+        };
 
-            navigateTo('screen-result');
+        function displayFloatingSticker(sender, emoji) {
+            const container = document.getElementById('sticker-container');
+            const el = document.createElement('div');
+            el.className = 'animate-float bg-slate-800/90 text-white px-3 py-1.5 rounded-full border border-amber-500/40 shadow-lg flex items-center gap-2 text-sm';
+            el.innerHTML = `<span class="font-bold text-amber-400">${sender}:</span> <span class="text-2xl">${emoji}</span>`;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 2000);
         }
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+        // Render Results Leaderboard with Word Summary
+        function renderResultLeaderboard(playersObj) {
+            const leaderboardEl = document.getElementById('result-leaderboard');
+            const players = Object.values(playersObj).sort((a, b) => b.score - a.score);
+            
+            leaderboardEl.innerHTML = players.map((p, idx) => {
+                const wordsList = p.words ? Object.values(p.words) : [];
+                const wordsHtml = wordsList.length > 0 
+                    ? wordsList.map(w => `<span class="inline-block bg-slate-800 px-2 py-1 rounded text-xs text-emerald-300 border border-slate-700">${w.word} (+${w.pts}pt)</span>`).join(' ')
+                    : `<span class="text-xs text-slate-500 italic">ไม่ได้ตอบคำศัพท์ในรอบนี้</span>`;
+
+                return `
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                        <span class="font-bold text-sm ${idx === 0 ? 'text-amber-400' : 'text-slate-200'}">
+                            ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} อันดับ ${idx + 1}: ${p.name}
+                        </span>
+                        <span class="font-black text-emerald-400 text-sm">${p.score} คะแนน</span>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold text-slate-400 mb-1">คำศัพท์ที่ตอบได้ (${wordsList.length} คำ):</div>
+                        <div class="flex flex-wrap gap-1">${wordsHtml}</div>
+                    </div>
+                </div>
+                `;
+            }).join('');
         }
+
+        function renderSoloResult() {
+            const leaderboardEl = document.getElementById('result-leaderboard');
+            const wordsList = window.gameState.submittedWordsList;
+            const wordsHtml = wordsList.length > 0
+                ? wordsList.map(w => `<span class="inline-block bg-slate-800 px-2 py-1 rounded text-xs text-emerald-300 border border-slate-700">${w.word} (+${w.pts}pt)</span>`).join(' ')
+                : `<span class="text-xs text-slate-500 italic">ไม่ได้ตอบคำศัพท์ในรอบนี้</span>`;
+
+            leaderboardEl.innerHTML = `
+                <div class="text-center p-2">
+                    <div class="text-sm font-bold text-slate-300">คะแนนรวมของคุณ</div>
+                    <div class="text-4xl font-black text-amber-400 my-1">${window.gameState.score}</div>
+                    <p class="text-xs text-slate-400 mb-4">พยายามได้ดีมาก!</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2 text-left">
+                    <div class="text-xs font-semibold text-slate-400 mb-1">คำศัพท์ที่คุณตอบได้ในรอบนี้ (${wordsList.length} คำ):</div>
+                    <div class="flex flex-wrap gap-1">${wordsHtml}</div>
+                </div>
+            `;
+            window.showScreen('result');
+        }
+
+        // Leave Room / Back to Lobby
+        window.leaveRoom = function() {
+            window.showScreen('menu');
+        };
+
+        window.backToLobby = function() {
+            if (window.gameState.isSolo) {
+                window.showScreen('menu');
+            } else {
+                if (window.gameState.isHost) {
+                    update(ref(db, `rooms/${window.gameState.roomCode}`), { status: 'waiting' });
+                }
+                window.showScreen('lobby');
+            }
+        };
     </script>
 </body>
 </html>
