@@ -242,6 +242,14 @@
         correctSound.volume = 0.5;
         wrongSound.volume = 0.5;
 
+        function playSound(type) {
+            const audio = new Audio(type === 'correct' ? correctSoundUrl : wrongSoundUrl);
+            audio.volume = 0.5;
+            audio.play().catch(err => {
+                console.warn("Audio play blocked or failed:", err);
+            });
+        }
+
         // Robust Audio Setup (BGM)
         const bgmAudio = new Audio();
         const BGM_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=fun-puzzle-loop-116345.mp3';
