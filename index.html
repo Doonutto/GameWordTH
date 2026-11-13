@@ -184,7 +184,7 @@
     <!-- Firebase SDK Modular (v9+) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, get, onValue, update, remove, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, get, onValue, update, remove, push, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         // Firebase Configuration (ProjectLobbyGame)
         const firebaseConfig = {
@@ -239,7 +239,7 @@
         // Sound Effects (SFX) Setup
         const correctSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3';
         const wrongSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3';
-        const endingSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Victory.mp3'; // หรือเปลี่ยนเป็นลิงก์เสียง Victory ของคุณ
+        const endingSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Victory.mp3';
 
         function playSound(type) {
             let audioUrl = wrongSoundUrl;
@@ -340,6 +340,9 @@
             window.gameState.isSolo = false;
 
             const roomRef = ref(db, `rooms/${window.gameState.roomCode}`);
+            const playerRef = ref(db, `rooms/${window.gameState.roomCode}/players/${name}`);
+            onDisconnect(playerRef).remove();
+
             await set(roomRef, {
                 status: 'waiting',
                 host: name,
@@ -378,7 +381,10 @@
                 return alert('ห้องนี้กำลังเริ่มแข่งขันอยู่ ไม่สามารถเข้าได้ในขณะนี้');
             }
 
-            await update(ref(db, `rooms/${code}/players/${name}`), {
+            const playerRef = ref(db, `rooms/${code}/players/${name}`);
+            onDisconnect(playerRef).remove();
+
+            await update(playerRef, {
                 name: name,
                 score: 0,
                 isHost: false,
@@ -479,7 +485,7 @@
             runGameTimer();
         };
 
-        // Submit Word Logic with 5 Wrong Event Validation Points
+        // Submit Word Logic with Firebase sync for Multiplayer
         window.submitWord = async function(e) {
             e.preventDefault();
             const inputEl = document.getElementById('input-word');
@@ -545,11 +551,16 @@
             document.getElementById('game-score').innerText = window.gameState.score;
             window.showGameToast(`+${gainedScore} คะแนนเยี่ยมมาก!`, 'success');
 
+            // บันทึกคะแนนและคำศัพท์ลง Firebase สำหรับโหมด Multi
             if (!window.gameState.isSolo) {
-                const pRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}`);
-                await update(pRef, { score: window.gameState.score });
-                const wordRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}/words`);
-                await push(wordRef, { word: word, pts: gainedScore });
+                try {
+                    const pRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}`);
+                    await update(pRef, { score: window.gameState.score });
+                    const wordRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}/words`);
+                    await push(wordRef, { word: word, pts: gainedScore });
+                } catch (err) {
+                    console.error("Firebase sync error:", err);
+                }
             }
         };
 
@@ -648,7 +659,16 @@
             window.showScreen('result');
         }
 
-        window.leaveRoom = function() {
+        window.leaveRoom = async function() {
+            if (!window.gameState.isSolo && window.gameState.roomCode && window.gameState.username) {
+                try {
+                    const playerRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}`);
+                    await remove(playerRef);
+                } catch (err) {
+                    console.error("Error leaving room:", err);
+                }
+            }
+            window.gameState.roomCode = '';
             window.showScreen('menu');
         };
 
