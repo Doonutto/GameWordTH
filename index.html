@@ -225,7 +225,7 @@
         async function loadDictionary() {
         try {
             // เปลี่ยน URL นี้เป็นลิงก์ Raw ของไฟล์ .json คุณบน GitHub
-            const response = await fetch('https://raw.githubusercontent.com/Doonutto/GameWordTH/edit/main/words.json');
+            const response = await fetch('https://raw.githubusercontent.com/Doonutto/GameWordTH/refs/heads/main/words.json');
             const data = await response.json();
             
             // นำข้อมูลคำศัพท์ทั้งหมดใส่เข้าไปใน Set
