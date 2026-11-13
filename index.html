@@ -236,19 +236,17 @@
         }
         loadDictionary();
         
-        // Sound Effects (SFX) Setup
-        const correctSoundUrl = new Audio('https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3');
-        const wrongSoundUrl = new Audio('https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3');
-        correctSound.volume = 0.5;
-        wrongSound.volume = 0.5;
+        // Sound Effects (SFX) Setup - เปลี่ยนเป็นเก็บลิงก์ URL แทน
+const correctSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3';
+const wrongSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3';
 
-        function playSound(type) {
-            const audio = new Audio(type === 'correct' ? correctSoundUrl : wrongSoundUrl);
-            audio.volume = 0.5;
-            audio.play().catch(err => {
-                console.warn("Audio play blocked or failed:", err);
-            });
-        }
+function playSound(type) {
+    const audio = new Audio(type === 'correct' ? correctSoundUrl : wrongSoundUrl);
+    audio.volume = 0.5;
+    audio.play().catch(err => {
+        console.warn("Audio play blocked or failed:", err);
+    });
+}
 
         // Robust Audio Setup (BGM)
         const bgmAudio = new Audio();
