@@ -439,6 +439,13 @@
                 if (room.status === 'playing' && window.gameState.currentScreen !== 'game') {
                     window.gameState.targetLetter = room.targetLetter || 'ก';
                     window.gameState.currentScreen = 'game';
+                    
+                    // รีเซ็ตค่าคะแนนและคำศัพท์ในเครื่องตัวเองเมื่อเริ่มเกมใหม่
+                    window.gameState.score = 0;
+                    window.gameState.usedWords.clear();
+                    window.gameState.submittedWordsList = [];
+                    document.getElementById('game-score').innerText = '0';
+
                     document.getElementById('target-letter').innerText = window.gameState.targetLetter;
                     window.showScreen('game');
                     runGameTimer();
@@ -464,7 +471,26 @@
         window.handleStartGame = async function() {
             if (!window.gameState.isHost) return;
             const targetChar = THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)];
-            await update(ref(db, `rooms/${window.gameState.roomCode}`), {
+            
+            const roomRef = ref(db, `rooms/${window.gameState.roomCode}`);
+            const snapshot = await get(roomRef);
+            if (snapshot.exists()) {
+                const roomData = snapshot.val();
+                if (roomData.players) {
+                    const updates = {
+                        status: 'playing',
+                        targetLetter: targetChar
+                    };
+                    Object.keys(roomData.players).forEach(playerName => {
+                        updates[`players/${playerName}/score`] = 0;
+                        updates[`players/${playerName}/words`] = null;
+                    });
+                    await update(roomRef, updates);
+                    return;
+                }
+            }
+
+            await update(roomRef, {
                 status: 'playing',
                 targetLetter: targetChar
             });
@@ -477,6 +503,7 @@
             window.gameState.targetLetter = THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)];
             window.gameState.score = 0;
             window.gameState.submittedWordsList = [];
+            window.gameState.usedWords.clear();
             
             document.getElementById('target-letter').innerText = window.gameState.targetLetter;
             document.getElementById('game-score').innerText = '0';
@@ -567,10 +594,6 @@
         function runGameTimer() {
             window.gameState.timer = 60;
             document.getElementById('game-timer').innerText = '60';
-            window.gameState.usedWords.clear();
-            window.gameState.submittedWordsList = [];
-            window.gameState.score = 0;
-            document.getElementById('game-score').innerText = '0';
 
             clearInterval(window.gameState.timerInterval);
             window.gameState.timerInterval = setInterval(async () => {
