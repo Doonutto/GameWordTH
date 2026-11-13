@@ -239,14 +239,19 @@
         // Sound Effects (SFX) Setup 
 const correctSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3';
 const wrongSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3';
-
+const endingSoundUrl = 'https://actions.google.com/sounds/v1/alarms/bugle_call.ogg'; //
+        
 function playSound(type) {
-    const audio = new Audio(type === 'correct' ? correctSoundUrl : wrongSoundUrl);
-    audio.volume = 0.5;
-    audio.play().catch(err => {
-        console.warn("Audio play blocked or failed:", err);
-    });
-}
+            let audioUrl = wrongSoundUrl;
+            if (type === 'correct') audioUrl = correctSoundUrl;
+            else if (type === 'ending') audioUrl = endingSoundUrl; // 👈 เพิ่มเงื่อนไขเลือกเสียงจบเกม
+
+            const audio = new Audio(audioUrl);
+            audio.volume = 0.5;
+            audio.play().catch(err => {
+                console.warn("Audio play blocked or failed:", err);
+            });
+        }
 
         // Robust Audio Setup (BGM)
         const bgmAudio = new Audio();
@@ -435,9 +440,10 @@ function playSound(type) {
 
                 if (room.status === 'finished' && window.gameState.currentScreen !== 'result') {
                     window.gameState.currentScreen = 'result';
+                    playSound('ending'); // 👈 เพิ่มเสียงตอนจบเกมตรงนี้
                     renderResultLeaderboard(room.players);
                     window.showScreen('result');
-                }
+            }
             });
 
             const stickerRef = ref(db, `rooms/${code}/stickers`);
@@ -568,6 +574,7 @@ function playSound(type) {
 
                 if (window.gameState.timer <= 0) {
                     clearInterval(window.gameState.timerInterval);
+                    playSound('ending');
                     if (!window.gameState.isSolo && window.gameState.isHost) {
                         await update(ref(db, `rooms/${window.gameState.roomCode}`), { status: 'finished' });
                     } else if (window.gameState.isSolo) {
@@ -626,6 +633,7 @@ function playSound(type) {
         }
 
         function renderSoloResult() {
+            playSound('ending'); // 👈 เพิ่มเสียงตอนจบเกมตรงนี้
             const leaderboardEl = document.getElementById('result-leaderboard');
             const wordsList = window.gameState.submittedWordsList;
             const wordsHtml = wordsList.length > 0
