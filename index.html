@@ -484,24 +484,21 @@ function playSound(type) {
 
             // 1. ตรวจสอบตัวอักษรขึ้นต้น (ผิด -> เล่นเสียงผิด)
             if (!word.startsWith(window.gameState.targetLetter)) {
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(err => {});
+                playSound('wrong');
                 window.showGameToast(`ต้องขึ้นต้นด้วยตัวอักษร "${window.gameState.targetLetter}" เท่านั้น!`, 'error');
                 return;
             }
 
             // 2. ตรวจสอบความถูกต้องจากพจนานุกรม (ผิด -> เล่นเสียงผิด)
             if (!THAI_DICTIONARY.has(word)) {
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(err => {});
+                playSound('wrong');
                 window.showGameToast(`"${word}" ไม่มีในพจนานุกรมคำศัพท์ที่ถูกต้อง!`, 'error');
                 return;
             }
 
             // 3. ป้องกันคำซ้ำ (ผิด -> เล่นเสียงผิด)
             if (window.gameState.usedWords.has(word)) {
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(err => {});
+                playSound('wrong');
                 window.showGameToast('คำนี้ถูกใช้ตอบไปแล้วครับ!', 'error');
                 return;
             }
@@ -519,16 +516,14 @@ function playSound(type) {
             };
 
             if (hasRepeatedSubstrings(word)) {
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(err => {});
+                playSound('wrong');
                 window.showGameToast('ไม่อนุญาตให้พิมพ์พยางค์ซ้ำวนในคำเดียวกันเพื่อปั๊มคะแนน!', 'error');
                 return;
             }
 
             // 5. ตรวจจับตัวอักษรซ้ำติดกันเกิน 2 ตัว
             if (/(.)\1{2,}/.test(word)) {
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(err => {});
+                playSound('wrong');
                 window.showGameToast('ไม่อนุญาตให้พิมพ์ตัวอักษรเดิมซ้ำกันเกิน 2 ตัว!', 'error');
                 return;
             }
