@@ -236,17 +236,22 @@
         }
         loadDictionary();
         
-        // Sound Effects (SFX) Setup - เปลี่ยนเป็นเก็บลิงก์ URL แทน
-const correctSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3';
-const wrongSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3';
+        // Sound Effects (SFX) Setup
+        const correctSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Correct.mp3';
+        const wrongSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Wrong.mp3';
+        const endingSoundUrl = 'https://raw.githubusercontent.com/Doonutto/GameWordTH/main/Victory.mp3'; // หรือเปลี่ยนเป็นลิงก์เสียง Victory ของคุณ
 
-function playSound(type) {
-    const audio = new Audio(type === 'correct' ? correctSoundUrl : wrongSoundUrl);
-    audio.volume = 0.5;
-    audio.play().catch(err => {
-        console.warn("Audio play blocked or failed:", err);
-    });
-}
+        function playSound(type) {
+            let audioUrl = wrongSoundUrl;
+            if (type === 'correct') audioUrl = correctSoundUrl;
+            else if (type === 'ending') audioUrl = endingSoundUrl;
+
+            const audio = new Audio(audioUrl);
+            audio.volume = 0.5;
+            audio.play().catch(err => {
+                console.warn("Audio play blocked or failed:", err);
+            });
+        }
 
         // Robust Audio Setup (BGM)
         const bgmAudio = new Audio();
@@ -435,6 +440,7 @@ function playSound(type) {
 
                 if (room.status === 'finished' && window.gameState.currentScreen !== 'result') {
                     window.gameState.currentScreen = 'result';
+                    playSound('ending');
                     renderResultLeaderboard(room.players);
                     window.showScreen('result');
                 }
@@ -473,7 +479,7 @@ function playSound(type) {
             runGameTimer();
         };
 
-        // Submit Word Logic with Dictionary, Filters, and Sound Effects
+        // Submit Word Logic with 5 Wrong Event Validation Points
         window.submitWord = async function(e) {
             e.preventDefault();
             const inputEl = document.getElementById('input-word');
@@ -482,21 +488,21 @@ function playSound(type) {
 
             if (!word) return;
 
-            // 1. ตรวจสอบตัวอักษรขึ้นต้น (ผิด -> เล่นเสียงผิด)
+            // 1. ตรวจสอบตัวอักษรขึ้นต้น
             if (!word.startsWith(window.gameState.targetLetter)) {
                 playSound('wrong');
                 window.showGameToast(`ต้องขึ้นต้นด้วยตัวอักษร "${window.gameState.targetLetter}" เท่านั้น!`, 'error');
                 return;
             }
 
-            // 2. ตรวจสอบความถูกต้องจากพจนานุกรม (ผิด -> เล่นเสียงผิด)
+            // 2. ตรวจสอบความถูกต้องจากพจนานุกรม
             if (!THAI_DICTIONARY.has(word)) {
                 playSound('wrong');
                 window.showGameToast(`"${word}" ไม่มีในพจนานุกรมคำศัพท์ที่ถูกต้อง!`, 'error');
                 return;
             }
 
-            // 3. ป้องกันคำซ้ำ (ผิด -> เล่นเสียงผิด)
+            // 3. ป้องกันคำซ้ำ
             if (window.gameState.usedWords.has(word)) {
                 playSound('wrong');
                 window.showGameToast('คำนี้ถูกใช้ตอบไปแล้วครับ!', 'error');
@@ -528,9 +534,8 @@ function playSound(type) {
                 return;
             }
 
-            // ผ่านทั้งหมด = ตอบถูก! (เล่นเสียงถูก)
-            correctSound.currentTime = 0;
-            correctSound.play().catch(err => {});
+            // ผ่านทั้งหมด = ตอบถูก!
+            playSound('correct');
 
             window.gameState.usedWords.add(word);
             const gainedScore = Math.min(word.length * 10, 150);
@@ -563,6 +568,7 @@ function playSound(type) {
 
                 if (window.gameState.timer <= 0) {
                     clearInterval(window.gameState.timerInterval);
+                    playSound('ending');
                     if (!window.gameState.isSolo && window.gameState.isHost) {
                         await update(ref(db, `rooms/${window.gameState.roomCode}`), { status: 'finished' });
                     } else if (window.gameState.isSolo) {
@@ -621,6 +627,7 @@ function playSound(type) {
         }
 
         function renderSoloResult() {
+            playSound('ending');
             const leaderboardEl = document.getElementById('result-leaderboard');
             const wordsList = window.gameState.submittedWordsList;
             const wordsHtml = wordsList.length > 0
