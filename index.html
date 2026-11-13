@@ -219,29 +219,29 @@
 
         const THAI_CHARACTERS = ['ก', 'ข', 'ค', 'ฆ' , 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ด', 'ต', 'ถ', 'ท', 'น', 'บ', 'ป', 'ผ', 'พ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ส', 'ห', 'อ'];
         
-        // Expanded Thai Dictionary (Including "ถูกต้อง" and common words)
+        // Expanded Thai Dictionary
         let THAI_DICTIONARY = new Set();
 
         async function loadDictionary() {
-        try {
-            // เปลี่ยน URL นี้เป็นลิงก์ Raw ของไฟล์ .json คุณบน GitHub
-            const response = await fetch('https://raw.githubusercontent.com/Doonutto/GameWordTH/refs/heads/main/words.json');
-            const data = await response.json();
-            
-            // นำข้อมูลคำศัพท์ทั้งหมดใส่เข้าไปใน Set
-            THAI_DICTIONARY = new Set(data.words);
-            console.log(`โหลดคำศัพท์สำเร็จทั้งหมด ${THAI_DICTIONARY.size} คำ`);
-        } catch (error) {
-            console.error("ไม่สามารถโหลดไฟล์คำศัพท์ได้:", error);
-            if (typeof window.showGameToast === 'function') {
-                window.showGameToast("เกิดข้อผิดพลาดในการโหลดคลังคำศัพท์", "error");
+            try {
+                const response = await fetch('https://raw.githubusercontent.com/Doonutto/GameWordTH/main/words.json');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                const wordArray = Array.isArray(data) ? data : (data.words || []);
+                THAI_DICTIONARY = new Set(wordArray);
+                console.log(`โหลดคำศัพท์สำเร็จทั้งหมด ${THAI_DICTIONARY.size} คำ`);
+            } catch (error) {
+                console.error("ไม่สามารถโหลดไฟล์คำศัพท์ได้:", error);
             }
         }
-    }
-
-    // เรียกใช้งานฟังก์ชันโหลดข้อมูลตอนเริ่มเกม
-    loadDictionary();
+        loadDictionary();
         
+        // Sound Effects (SFX) Setup
+        const correctSound = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
+        const wrongSound = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flick.ogg');
+        correctSound.volume = 0.5;
+        wrongSound.volume = 0.5;
+
         // Robust Audio Setup (BGM)
         const bgmAudio = new Audio();
         const BGM_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=fun-puzzle-loop-116345.mp3';
@@ -315,12 +315,10 @@
             }
         };
 
-        // Helper: Generate 6-digit Code
         function generateRoomCode() {
             return Math.floor(100000 + Math.random() * 900000).toString();
         }
 
-        // Host Create Room
         window.handleCreateRoom = async function() {
             const name = document.getElementById('input-username').value.trim();
             if (!name) return alert('กรุณากรอกชื่อผู้เล่นก่อนครับ');
@@ -345,7 +343,6 @@
             listenToRoomUpdates(window.gameState.roomCode);
         };
 
-        // Join Room
         window.handleJoinRoom = async function() {
             const name = document.getElementById('input-username').value.trim();
             const code = document.getElementById('input-room-code').value.trim();
@@ -382,14 +379,12 @@
             listenToRoomUpdates(code);
         };
 
-        // Listen to Firebase Realtime Database
         function listenToRoomUpdates(code) {
             const roomRef = ref(db, `rooms/${code}`);
             onValue(roomRef, (snapshot) => {
                 if (!snapshot.exists()) return;
                 const room = snapshot.val();
 
-                // 1. Update Player List in Lobby
                 const playerListEl = document.getElementById('player-list');
                 const playerCountEl = document.getElementById('player-count');
                 const startBtn = document.getElementById('btn-start-game');
@@ -414,7 +409,6 @@
                     }
                 }
 
-                // 2. Sync In-Game Scoreboard
                 if (room.players && document.getElementById('in-game-scoreboard')) {
                     const sortedPlayers = Object.values(room.players).sort((a, b) => b.score - a.score);
                     document.getElementById('in-game-scoreboard').innerHTML = sortedPlayers.map(p => `
@@ -425,7 +419,6 @@
                     `).join('');
                 }
 
-                // 3. Game Start Trigger
                 if (room.status === 'playing' && window.gameState.currentScreen !== 'game') {
                     window.gameState.targetLetter = room.targetLetter || 'ก';
                     window.gameState.currentScreen = 'game';
@@ -434,7 +427,6 @@
                     runGameTimer();
                 }
 
-                // 4. Game Over Trigger
                 if (room.status === 'finished' && window.gameState.currentScreen !== 'result') {
                     window.gameState.currentScreen = 'result';
                     renderResultLeaderboard(room.players);
@@ -442,7 +434,6 @@
                 }
             });
 
-            // Listen to Stickers Realtime
             const stickerRef = ref(db, `rooms/${code}/stickers`);
             onChildAdded(stickerRef, (snapshot) => {
                 const data = snapshot.val();
@@ -452,7 +443,6 @@
             });
         }
 
-        // Host Click Start Game
         window.handleStartGame = async function() {
             if (!window.gameState.isHost) return;
             const targetChar = THAI_CHARACTERS[Math.floor(Math.random() * THAI_CHARACTERS.length)];
@@ -462,7 +452,6 @@
             });
         };
 
-        // Solo Mode
         window.startSoloMode = function() {
             const name = document.getElementById('input-username').value.trim() || 'ผู้เล่นเดี่ยว';
             window.gameState.username = name;
@@ -478,7 +467,7 @@
             runGameTimer();
         };
 
-        // Submit Word Logic with Dictionary & Repetition Filter
+        // Submit Word Logic with Dictionary, Filters, and Sound Effects
         window.submitWord = async function(e) {
             e.preventDefault();
             const inputEl = document.getElementById('input-word');
@@ -487,20 +476,26 @@
 
             if (!word) return;
 
-            // 1. ตรวจสอบตัวอักษรขึ้นต้น
+            // 1. ตรวจสอบตัวอักษรขึ้นต้น (ผิด -> เล่นเสียงผิด)
             if (!word.startsWith(window.gameState.targetLetter)) {
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(err => {});
                 window.showGameToast(`ต้องขึ้นต้นด้วยตัวอักษร "${window.gameState.targetLetter}" เท่านั้น!`, 'error');
                 return;
             }
 
-            // 2. ตรวจสอบความถูกต้องจากพจนานุกรม
+            // 2. ตรวจสอบความถูกต้องจากพจนานุกรม (ผิด -> เล่นเสียงผิด)
             if (!THAI_DICTIONARY.has(word)) {
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(err => {});
                 window.showGameToast(`"${word}" ไม่มีในพจนานุกรมคำศัพท์ที่ถูกต้อง!`, 'error');
                 return;
             }
 
-            // 3. ป้องกันคำซ้ำที่เคยตอบไปแล้วในรอบนี้
+            // 3. ป้องกันคำซ้ำ (ผิด -> เล่นเสียงผิด)
             if (window.gameState.usedWords.has(word)) {
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(err => {});
                 window.showGameToast('คำนี้ถูกใช้ตอบไปแล้วครับ!', 'error');
                 return;
             }
@@ -518,37 +513,40 @@
             };
 
             if (hasRepeatedSubstrings(word)) {
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(err => {});
                 window.showGameToast('ไม่อนุญาตให้พิมพ์พยางค์ซ้ำวนในคำเดียวกันเพื่อปั๊มคะแนน!', 'error');
                 return;
             }
 
             // 5. ตรวจจับตัวอักษรซ้ำติดกันเกิน 2 ตัว
             if (/(.)\1{2,}/.test(word)) {
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(err => {});
                 window.showGameToast('ไม่อนุญาตให้พิมพ์ตัวอักษรเดิมซ้ำกันเกิน 2 ตัว!', 'error');
                 return;
             }
 
-        window.gameState.usedWords.add(word);
+            // ผ่านทั้งหมด = ตอบถูก! (เล่นเสียงถูก)
+            correctSound.currentTime = 0;
+            correctSound.play().catch(err => {});
+
+            window.gameState.usedWords.add(word);
             const gainedScore = Math.min(word.length * 10, 150);
             window.gameState.score += gainedScore;
             window.gameState.submittedWordsList.push({ word: word, pts: gainedScore });
             
             document.getElementById('game-score').innerText = window.gameState.score;
-
             window.showGameToast(`+${gainedScore} คะแนนเยี่ยมมาก!`, 'success');
 
-            // Sync Score & Words to Firebase if Multiplayer
             if (!window.gameState.isSolo) {
                 const pRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}`);
-                await update(pRef, {
-                    score: window.gameState.score
-                });
+                await update(pRef, { score: window.gameState.score });
                 const wordRef = ref(db, `rooms/${window.gameState.roomCode}/players/${window.gameState.username}/words`);
                 await push(wordRef, { word: word, pts: gainedScore });
             }
         };
 
-        // Game Timer (60s)
         function runGameTimer() {
             window.gameState.timer = 60;
             document.getElementById('game-timer').innerText = '60';
@@ -573,7 +571,6 @@
             }, 1000);
         }
 
-        // Send Sticker Realtime
         window.sendSticker = async function(stickerEmoji) {
             displayFloatingSticker(window.gameState.username, stickerEmoji);
             if (!window.gameState.isSolo) {
@@ -595,7 +592,6 @@
             setTimeout(() => el.remove(), 2000);
         }
 
-        // Render Results Leaderboard with Word Summary
         function renderResultLeaderboard(playersObj) {
             const leaderboardEl = document.getElementById('result-leaderboard');
             const players = Object.values(playersObj).sort((a, b) => b.score - a.score);
@@ -644,7 +640,6 @@
             window.showScreen('result');
         }
 
-        // Leave Room / Back to Lobby
         window.leaveRoom = function() {
             window.showScreen('menu');
         };
